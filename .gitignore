@@ -1,7 +1,42 @@
-venv/
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment variables & secrets
 .env
+.env.*
+!.env.example
+
+# Pytest / Testing / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Databases
 *.db
-.idea/
+*.sqlite
+*.sqlite3
+
+# Build & packaging
+dist/
+build/
+*.egg-info/
+
+# Logs & temporary files
+*.log
+
+# IDEs and Editors
 .vscode/
+.idea/
+*.swp
+
+# OS generated files
+.DS_Store
+Thumbs.db
