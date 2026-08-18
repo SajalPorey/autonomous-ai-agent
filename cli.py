@@ -1,5 +1,6 @@
 import sys
 import argparse
+from typing import Optional
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
@@ -8,9 +9,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 load_dotenv()
 
-from app.models.task import GoalRequest
-from app.agent.executor import SazonExecutor
-from app.agent.tools import default_registry
+from agent import GoalRequest, SazonExecutor, default_registry
 
 console = Console()
 
@@ -28,7 +27,6 @@ def display_result(result):
     console.print(f"Goal: [italic]{result.goal}[/italic]")
     console.print(f"Total Iterations: {result.total_iterations} | Time: {result.execution_time_seconds}s\n")
 
-    # Display Tasks Table
     table = Table(title="Subtasks Execution Plan", border_style="blue")
     table.add_column("ID", style="dim", width=10)
     table.add_column("Title", style="bold")
@@ -46,14 +44,14 @@ def display_result(result):
         )
 
     console.print(table)
-
-    # Display Final Answer Panel
     console.print("\n", Panel(result.final_answer, title="[bold green]Final Outcome[/bold green]", border_style="green"))
 
 
-def run_single_goal(goal: str, max_iterations: int = 10):
+def run_single_goal(goal: str, max_iterations: int = 10, provider: Optional[str] = None, model: Optional[str] = None):
     console.print(f"\n[bold yellow]Initializing Sazon for goal:[/bold yellow] {goal}")
-    req = GoalRequest(goal=goal, max_iterations=max_iterations)
+    if model or provider:
+        console.print(f"[dim]Model: {model or 'default'} (Provider: {provider or 'default'})[/dim]")
+    req = GoalRequest(goal=goal, max_iterations=max_iterations, llm_provider=provider, model=model)
 
     with Progress(
         SpinnerColumn(),
@@ -69,16 +67,36 @@ def run_single_goal(goal: str, max_iterations: int = 10):
 
 def interactive_mode():
     print_banner()
-    console.print("[dim]Type your goal and press Enter. Type 'exit' or 'quit' to exit.[/dim]\n")
+    console.print("[dim]Type your goal and press Enter. Commands: 'models', 'model <name>', 'tools', 'exit'[/dim]\n")
+    current_provider = None
+    current_model = None
 
     while True:
         try:
-            goal = console.input("[bold cyan]Sazon>[/bold cyan] ").strip()
+            prompt_str = f"[bold cyan]Sazon({current_model or 'default'})>[/bold cyan] "
+            goal = console.input(prompt_str).strip()
             if not goal:
                 continue
             if goal.lower() in ("exit", "quit", "q"):
                 console.print("[yellow]Goodbye![/yellow]")
                 break
+            if goal.lower() == "models":
+                table = Table(title="Model Presets & Providers")
+                table.add_column("Model Name", style="cyan")
+                table.add_column("Provider", style="magenta")
+                table.add_row("gemini-2.5-flash", "gemini (Google)")
+                table.add_row("gemini-1.5-pro", "gemini (Google)")
+                table.add_row("gpt-4o-mini", "openai")
+                table.add_row("gpt-4o", "openai")
+                table.add_row("heuristic", "local fallback")
+                console.print(table)
+                continue
+            if goal.lower().startswith("model "):
+                selected = goal[6:].strip()
+                current_model = selected
+                current_provider = "openai" if ("gpt" in selected.lower() or "o1" in selected.lower() or "o3" in selected.lower()) else "gemini"
+                console.print(f"[green]Active model switched to: {current_model} (Provider: {current_provider})[/green]")
+                continue
             if goal.lower() == "tools":
                 tools = default_registry.list_tools()
                 table = Table(title="Available Tools")
@@ -89,7 +107,7 @@ def interactive_mode():
                 console.print(table)
                 continue
 
-            run_single_goal(goal)
+            run_single_goal(goal, provider=current_provider, model=current_model)
         except (KeyboardInterrupt, EOFError):
             console.print("\n[yellow]Exiting Sazon.[/yellow]")
             break
@@ -99,11 +117,13 @@ def main():
     parser = argparse.ArgumentParser(description="Sazon Autonomous AI Agent CLI")
     parser.add_argument("goal", nargs="?", type=str, help="Goal for Sazon to execute")
     parser.add_argument("--iterations", type=int, default=10, help="Max iterations")
+    parser.add_argument("--provider", type=str, default=None, help="LLM Provider (gemini, openai)")
+    parser.add_argument("--model", type=str, default=None, help="LLM Model (e.g. gemini-2.5-flash, gpt-4o)")
     args = parser.parse_args()
 
     if args.goal:
         print_banner()
-        run_single_goal(args.goal, max_iterations=args.iterations)
+        run_single_goal(args.goal, max_iterations=args.iterations, provider=args.provider, model=args.model)
     else:
         interactive_mode()
 

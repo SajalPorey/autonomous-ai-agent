@@ -1,10 +1,15 @@
 import os
 import pytest
-from app.models.task import GoalRequest, TaskStatus
-from app.agent.tools import ToolRegistry, default_registry
-from app.agent.memory import MemoryManager
-from app.agent.planner import plan_task
-from app.agent.executor import SazonExecutor, execute_task
+from agent import (
+    GoalRequest,
+    TaskStatus,
+    ToolRegistry,
+    default_registry,
+    MemoryManager,
+    plan_task,
+    SazonExecutor,
+    execute_task,
+)
 
 
 def test_tool_registry():
@@ -26,9 +31,9 @@ def test_tool_registry():
     search_res = registry.execute("file_search", {"pattern": "test_tmp.txt", "directory": "."})
     assert "test_tmp.txt" in search_res
 
-    # Test system_status
-    sys_res = registry.execute("system_status", {})
-    assert "platform" in sys_res
+    # Test system_info
+    sys_res = registry.execute("system_info", {})
+    assert "os" in sys_res
 
     # Cleanup
     if os.path.exists("test_tmp.txt"):
@@ -38,19 +43,14 @@ def test_tool_registry():
 
 
 def test_memory_manager():
-    mem = MemoryManager(memory_file=".test_memory.json")
+    mem = MemoryManager()
     mem.add_working_memory("Test observation", category="test")
-    assert len(mem.short_term_memory) == 1
-
-    mem.save_persistent("key1", "val1")
-    assert mem.get_persistent("key1") == "val1"
-
-    if os.path.exists(".test_memory.json"):
-        os.remove(".test_memory.json")
+    assert len(mem.working_memory) == 1
+    assert "TEST" in mem.get_context_summary()
 
 
 def test_planner():
-    subtasks = plan_task("Test goal for laptop assistant planning")
+    subtasks = plan_task("Check system hardware and create report")
     assert len(subtasks) > 0
     assert subtasks[0].status == TaskStatus.PENDING
 
