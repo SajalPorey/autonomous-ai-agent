@@ -283,21 +283,57 @@ class MemoryManager:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class LLMClient:
-    """Unified LLM client for Sazon (Gemini, OpenAI, or local smart fallback)."""
+    """Unified LLM client for Sazon (Gemini, OpenAI, sample demo model, or local fallback)."""
 
     def __init__(self, provider: Optional[str] = None, model: Optional[str] = None):
-        self.provider = provider or os.getenv("DEFAULT_LLM_PROVIDER", "gemini").lower()
+        self.provider = (provider or os.getenv("DEFAULT_LLM_PROVIDER", "sample")).lower()
         self.model = model
         self.gemini_key = os.getenv("GEMINI_API_KEY")
         self.openai_key = os.getenv("OPENAI_API_KEY")
 
     def generate(self, prompt: str, system_instruction: Optional[str] = None, json_mode: bool = False) -> str:
-        if self.provider == "gemini" and self.gemini_key:
+        provider = (self.provider or "").lower()
+        model_name = (self.model or "").lower()
+
+        # Dedicated Sample / Demo Model
+        if provider in ("sample", "mock", "demo") or "sample" in model_name or "demo" in model_name:
+            return self._sample_model_response(prompt, json_mode)
+
+        if provider == "gemini" and self.gemini_key:
             return self._call_gemini(prompt, system_instruction, json_mode)
-        elif self.provider == "openai" and self.openai_key:
+        elif provider == "openai" and self.openai_key:
             return self._call_openai(prompt, system_instruction, json_mode)
         else:
             return self._fallback_response(prompt, json_mode)
+
+    def _sample_model_response(self, prompt: str, json_mode: bool) -> str:
+        """Sample / Demo model: handles greetings, basic hi/hello, and simulated tasks without API keys."""
+        p_lower = prompt.lower()
+        is_greeting = any(w in p_lower for w in ["hi", "hello", "hey", "namaste", "hola", "sup", "who are you", "what are you"])
+
+        if json_mode:
+            if is_greeting:
+                return json.dumps({
+                    "subtasks": [
+                        {
+                            "id": "task_1",
+                            "title": "Greet User",
+                            "description": "Send a friendly greeting and introduction",
+                            "priority": 1,
+                            "tool_name": None,
+                            "tool_input": {}
+                        }
+                    ]
+                })
+            else:
+                return self._fallback_response(prompt, json_mode=True)
+        else:
+            if any(w in p_lower for w in ["hi", "hello", "hey", "namaste", "hola", "sup"]):
+                return "Hello! 👋 Sazon is here, how may I help you today?"
+            elif "who are you" in p_lower or "what are you" in p_lower:
+                return "🤖 I am **Sazon**, your autonomous AI desktop mascot and assistant! I can automate tasks, inspect system diagnostics, explore files, and execute commands on your laptop."
+            else:
+                return f"Sazon completed your request: \"{prompt[:80]}\" successfully."
 
     def _call_gemini(self, prompt: str, system_instruction: Optional[str], json_mode: bool) -> str:
         try:
@@ -329,9 +365,24 @@ class LLMClient:
 
     def _fallback_response(self, prompt: str, json_mode: bool) -> str:
         """Local smart fallback when API key is not configured."""
+        p_lower = prompt.lower()
+        is_greeting = any(w in p_lower for w in ["hi", "hello", "hey", "namaste", "hola", "sup", "who are you", "what are you"])
+
         if json_mode:
-            p_lower = prompt.lower()
-            if "status" in p_lower or "hardware" in p_lower or "diagnostic" in p_lower:
+            if is_greeting:
+                return json.dumps({
+                    "subtasks": [
+                        {
+                            "id": "task_1",
+                            "title": "Greet User",
+                            "description": "Send a friendly greeting to the user",
+                            "priority": 1,
+                            "tool_name": None,
+                            "tool_input": {}
+                        }
+                    ]
+                })
+            elif "status" in p_lower or "hardware" in p_lower or "diagnostic" in p_lower:
                 return json.dumps({
                     "subtasks": [
                         {
@@ -391,7 +442,10 @@ class LLMClient:
                         }
                     ]
                 })
-        return f"Goal processed successfully via Sazon Agent Engine."
+        else:
+            if is_greeting:
+                return "Hello! 👋 Sazon is here, how may I help you today?"
+            return f"Goal processed successfully via Sazon Agent Engine."
 
 
 # ─────────────────────────────────────────────────────────────────────────────
