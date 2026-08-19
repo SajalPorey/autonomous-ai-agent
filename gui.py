@@ -30,11 +30,12 @@ _QUICK_ACTIONS = [
 
 # Model presets for manual selection
 _MODEL_PRESETS = [
-    {"label": "⚡ Gemini 2.5 Flash", "provider": "gemini", "model": "gemini-2.5-flash"},
-    {"label": "🧠 Gemini 1.5 Pro",   "provider": "gemini", "model": "gemini-1.5-pro"},
-    {"label": "🚀 GPT-4o Mini",      "provider": "openai", "model": "gpt-4o-mini"},
-    {"label": "🔥 GPT-4o",           "provider": "openai", "model": "gpt-4o"},
-    {"label": "💻 Local Heuristic",  "provider": "local",  "model": "heuristic"},
+    {"label": "🤖 Sazon",                  "provider": "sample",  "model": "sazon"},
+    {"label": "⚡ Gemini 2.5 Flash",       "provider": "gemini",  "model": "gemini-2.5-flash"},
+    {"label": "🧠 Gemini 1.5 Pro",         "provider": "gemini",  "model": "gemini-1.5-pro"},
+    {"label": "🚀 GPT-4o Mini",            "provider": "openai",  "model": "gpt-4o-mini"},
+    {"label": "🔥 GPT-4o",                 "provider": "openai",  "model": "gpt-4o"},
+    {"label": "💻 Local Heuristic",        "provider": "local",   "model": "heuristic"},
 ]
 
 
@@ -394,8 +395,13 @@ class StatusCard(tk.Frame):
         super().__init__(parent, bg=Theme.BG_CARD, padx=14, pady=12, **kwargs)
         self._meta_labels: dict = {}
         self._on_select_model = on_select_model
-        self._active_model_name = "gemini-2.5-flash"
-        self._active_display = "⚡ Gemini 2.5 Flash"
+        has_api_key = bool(os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY"))
+        if has_api_key:
+            self._active_model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+            self._active_display = "⚡ Gemini 2.5 Flash"
+        else:
+            self._active_model_name = "sazon"
+            self._active_display = "🤖 Sazon"
         self._build()
 
     def _build(self):
@@ -680,9 +686,15 @@ class SazonRoundBotWidget:
         self._drag_sy: int = 0
 
         # Active Model Selection
-        self.active_provider = os.getenv("DEFAULT_LLM_PROVIDER", "gemini").lower()
-        self.active_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-        self.active_model_display = "⚡ Gemini 2.5 Flash"
+        has_api_key = bool(os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY"))
+        if has_api_key:
+            self.active_provider = os.getenv("DEFAULT_LLM_PROVIDER", "gemini").lower()
+            self.active_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+            self.active_model_display = "⚡ Gemini 2.5 Flash"
+        else:
+            self.active_provider = "sample"
+            self.active_model = "sazon"
+            self.active_model_display = "🤖 Sazon"
 
         self._morph = GeometryMorph(self.root)
         self._build()
@@ -791,13 +803,13 @@ class SazonRoundBotWidget:
         if not goal or self.is_running:
             return
 
+        self.input_bar.set("")
         self.is_running = True
         self.input_bar.set_executing(True)
         self.titlebar.set_status("running", f"'{goal[:26]}…'")
 
-        self.console.append(f"\n🎯 Goal: {goal}", "title")
-        self.console.append(f"🤖 Model: {self.active_model_display} ({self.active_model})", "dim")
-        self.console.start_spinner("Planning and executing subtasks…")
+        self.console.append(f"\nYou: {goal}", "title")
+        self.console.start_spinner("Sazon is processing…")
 
         thread = threading.Thread(target=self._run_agent_thread, args=(goal,), daemon=True)
         thread.start()
@@ -824,23 +836,15 @@ class SazonRoundBotWidget:
 
         self.status_card.update_meta(memory_count=memory_count, last_time=result.execution_time_seconds)
 
-        if result.tasks:
-            self.console.append("\n📋 Steps Completed:", "title")
-            for task in result.tasks:
-                sym = "✓" if task.status == TaskStatus.COMPLETED else "✗"
-                tinfo = f" ({task.tool_name})" if task.tool_name else ""
-                tag = "success" if task.status == TaskStatus.COMPLETED else "error"
-                self.console.append(f"  [{sym}] {task.title}{tinfo}", tag)
-
-        self.console.append("\n🏆 Final Outcome:", "success")
-        self.console.append(result.final_answer)
+        # Clean abstracted output: Sazon: <answer>
+        self.console.append(f"Sazon: {result.final_answer}", "success")
 
     def _on_execution_error(self, err_msg: str):
         self.is_running = False
         self.input_bar.set_executing(False)
         self.console.stop_spinner()
         self.titlebar.set_status("error")
-        self.console.append(f"\n❌ Execution Error: {err_msg}", "error")
+        self.console.append(f"Sazon: Encountered an issue — {err_msg}", "error")
 
 
 def launch_gui():

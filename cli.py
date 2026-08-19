@@ -84,6 +84,7 @@ def interactive_mode():
                 table = Table(title="Model Presets & Providers")
                 table.add_column("Model Name", style="cyan")
                 table.add_column("Provider", style="magenta")
+                table.add_row("sazon", "sample (Local Mascot Mode)")
                 table.add_row("gemini-2.5-flash", "gemini (Google)")
                 table.add_row("gemini-1.5-pro", "gemini (Google)")
                 table.add_row("gpt-4o-mini", "openai")
@@ -94,7 +95,12 @@ def interactive_mode():
             if goal.lower().startswith("model "):
                 selected = goal[6:].strip()
                 current_model = selected
-                current_provider = "openai" if ("gpt" in selected.lower() or "o1" in selected.lower() or "o3" in selected.lower()) else "gemini"
+                if "sample" in selected.lower() or "demo" in selected.lower() or "mock" in selected.lower():
+                    current_provider = "sample"
+                elif "gpt" in selected.lower() or "o1" in selected.lower() or "o3" in selected.lower():
+                    current_provider = "openai"
+                else:
+                    current_provider = "gemini"
                 console.print(f"[green]Active model switched to: {current_model} (Provider: {current_provider})[/green]")
                 continue
             if goal.lower() == "tools":
